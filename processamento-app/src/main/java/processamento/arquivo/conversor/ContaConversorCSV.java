@@ -1,4 +1,4 @@
-package processamento.conversor;
+package processamento.arquivo.conversor;
 
 import processamento.modelo.ContaReceita;
 
@@ -18,7 +18,7 @@ public final class ContaConversorCSV {
     }
 
     public static String converteDoubleParaTextoNumerico(double valor){
-        return String.valueOf(valor).replace('.',',');
+        return String.format("%.2f",valor).replace('.',',');
     }
 
     public static ContaReceita converteContaCSVParaContaReceita(String contaCSV){
@@ -33,7 +33,7 @@ public final class ContaConversorCSV {
         contaCSV.append(stringValueOrEmptyNull(adicionaChar(contaReceita.getConta(),'-',5)));
         contaCSV.append(converteDoubleParaTextoNumerico(contaReceita.getSaldo()).concat(CSV_DIVISOR));
         contaCSV.append(stringValueOrEmptyNull(contaReceita.getStatus()));
-        contaCSV.append(converteFlagBooleanParaTexto(contaReceita.getAtualizada()));
+        contaCSV.append(converteFlagBooleanParaTexto(contaReceita.getAtualizada().booleanValue()));
         contaCSV.append(quebraLinha);
         return contaCSV.toString().getBytes();
     }
@@ -42,7 +42,7 @@ public final class ContaConversorCSV {
         return value == null? "": value.concat(CSV_DIVISOR);
     }
 
-    private static String converteFlagBooleanParaTexto(Boolean atualizada){
+    private static String converteFlagBooleanParaTexto(boolean atualizada){
         if(atualizada){
             return "S";
         }else{

@@ -32,32 +32,31 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import processamento.conversor.ContaConversorCSV;
+import processamento.arquivo.ContaAtualizadaCSVTemplate;
+import processamento.arquivo.conversor.ContaConversorCSV;
 import processamento.modelo.ContaReceita;
+import processamento.servico.externo.ReceitaService;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
-import java.util.stream.Stream;
+import java.util.List;
+import java.util.stream.Collectors;
 
 
 @SpringBootApplication
 public class SincronizacaoReceita implements CommandLineRunner {
 
-    private static Logger LOG = LoggerFactory
+    private static final Logger LOGGER = LoggerFactory
             .getLogger(SincronizacaoReceita.class);
     private static final int LINHA_POS = 1;
-    private static final String CABECARIO_CONTA_ATUALIZADO = "agencia;conta;saldo;status;atualizado";
-    private static ReceitaService receitaService;
+    private static final String NUMERO_THREADS_PARALELISMO = "1000";
 
     public static void main(String[] args) {
-        LOG.info("Inicializando Aplicação!");
-        SpringApplication.run(SincronizacaoReceita.class,args);
-        LOG.info("Finalizando aplicação!");
+        LOGGER.info("Inicializando Aplicação!");
+        SpringApplication.run(SincronizacaoReceita.class, args);
+        LOGGER.info("Finalizando aplicação.");
     }
 
     @Override
@@ -67,47 +66,44 @@ public class SincronizacaoReceita implements CommandLineRunner {
         SincronizacaoReceita.atualizaContas(path);
     }
 
-    public static Path atualizaContas(String path) throws IOException, InterruptedException, ExecutionException {
-            String pathBase = System.getProperty("user.dir")+"\\src\\main\\resources\\";
-            receitaService = new ReceitaService();
-            Path contaAtualizado = Paths.get(pathBase+"contaAtualizada.csv");
-            Files.deleteIfExists(contaAtualizado);
-            Files.createFile(contaAtualizado);
-            Files.write(contaAtualizado, (CABECARIO_CONTA_ATUALIZADO+"\r\n").getBytes(), StandardOpenOption.WRITE);
+    public static Path atualizaContas(String path) throws IOException {
+        //configurar de acordo com as configuracoes de perfomance a ser obtido
+        System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", NUMERO_THREADS_PARALELISMO);
+        String pathBase = System.getProperty("user.dir") + "\\src\\main\\resources\\";
+        Path contaAtualizado = Paths.get(pathBase + "contaAtualizada.csv");
+        Files.deleteIfExists(contaAtualizado);
+        Files.createFile(contaAtualizado);
+        List<byte[]> dadosContasAtualizada =
+                Files.lines(Paths.get(path))
+                        .skip(LINHA_POS)
+                        .parallel()
+                        .map(SincronizacaoReceita::atualizaLinha)
+                        .collect(Collectors.toList());
 
-            Stream<String> dadosConta  = Files.lines(Paths.get(path)).skip(LINHA_POS);
-            //configura de acordo com o tipo de maquina
-            ForkJoinPool customPool = new ForkJoinPool(10);
-            Stream<byte[]> dados = customPool.submit(() -> dadosConta.parallel().map(contaCSV -> atualizaLinha(contaCSV)))
-                    .get();
-            dados.forEach(contaCSV -> {
-                try {
-                    Files.write(contaAtualizado, contaCSV, StandardOpenOption.APPEND);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
-
-            return contaAtualizado;
+        return ContaAtualizadaCSVTemplate.criarArquivoContaAtualizada(contaAtualizado, dadosContasAtualizada);
     }
 
-    private static byte[] atualizaLinha(String contaCSV) {
 
-        int numeroMaximoTentativasServico = 10;
+    private static byte[] atualizaLinha(String contaCSV) {
         ContaReceita contaReceita = ContaConversorCSV.converteContaCSVParaContaReceita(contaCSV);
-        while( --numeroMaximoTentativasServico != 0) {
+        int numeroMaximoTentativasServico = 5;
+        while (numeroMaximoTentativasServico != 0) {
             try {
+                ReceitaService receitaService = new ReceitaService();
                 Boolean atualizada = receitaService.atualizarConta(contaReceita.getAgencia(),
-                        contaReceita.getConta(),contaReceita.getSaldo() , contaReceita.getStatus());
-                 contaReceita.setAtualizada(atualizada);
-                 return ContaConversorCSV.converteContaReceitaParaBytes(contaReceita);
+                        contaReceita.getConta(), contaReceita.getSaldo(), contaReceita.getStatus());
+                contaReceita.setAtualizada(atualizada);
+                return ContaConversorCSV.converteContaReceitaParaBytes(contaReceita);
             } catch (RuntimeException exception) {
-                LOG.info("ERROR em ContaReceita! Realizando nova tentativa!");
-            }catch (InterruptedException exception){
+                LOGGER.error("SIRE-1 - ERROR no consumo do serviço ReceitaService. Realizando nova tentativa! ".concat(exception.getClass().getName()));
+                numeroMaximoTentativasServico--;
+            } catch (InterruptedException exception) {
+                LOGGER.error("SIRE-2 - Thread interrompida. Falha na operação de atualização! ".concat(exception.getClass().getName()));
+                numeroMaximoTentativasServico--;
                 Thread.currentThread().interrupt();
             }
         }
-       contaReceita.setAtualizada(Boolean.FALSE);
+        contaReceita.setAtualizada(Boolean.FALSE);
         return ContaConversorCSV.converteContaReceitaParaBytes(contaReceita);
     }
 
