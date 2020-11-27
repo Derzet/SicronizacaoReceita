@@ -1,4 +1,4 @@
-# SicronizacaoReceita
+# SincronizacaoReceita
 
 A versão do projeto Java utilizada nesse projeto foi a JDK 11.
 
