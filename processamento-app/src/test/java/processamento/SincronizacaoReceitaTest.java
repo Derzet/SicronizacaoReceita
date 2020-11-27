@@ -68,7 +68,7 @@ public class SincronizacaoReceitaTest {
     }
 
     @Test
-    public void formatoInvalidoArquivoSemExtensao() throws IOException {
+    public void formatoInvalidoArquivoSemExtensao() {
         nomeArquivoInvalido("semExtensao");
     }
 
@@ -83,7 +83,7 @@ public class SincronizacaoReceitaTest {
     }
 
     @Test
-    public void deveriaDadosEntradaPermanecerArquivoSaida() throws IOException {
+    public void deveriaIntegridadeDadosEntradaPermaneceremNoArquivoSaidaEAtualizar() throws IOException {
         final String nomeArquivo = "receitaTesteIntegridadeDadosTeste.csv";
         File arquivoSaida = SincronizacaoReceita.atualizaContas(criaCaminhoArquivoOrigem(nomeArquivo));
         List<ContaReceita> dadosEntrada = obtemDadosCSVContaReceita(criaCaminhoArquivoOrigem(nomeArquivo));

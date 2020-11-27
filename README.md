@@ -18,6 +18,6 @@ java -jar target/processamento-app-1.0-SNAPSHOT.jar "caminhoArquivo"
 O arquivo com as contas atualizada irá ser gerado dentro do projeto na pasta resources com o nome de arquivo: contaAtualizada.csv
 
 Testes com 1000 threads:
-![alt text](images/teste_desempenho_contas.png)
+![alt text](images/testes_desempenho_e_unitario_SincronizacaoReceita.png)
 
 Por: Matheus Herminio
