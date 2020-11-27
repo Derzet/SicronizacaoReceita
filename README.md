@@ -15,7 +15,7 @@ java -jar target/processamento-app-1.0.jar "caminhoArquivo"
 ```
 
 
-O arquivo com os dados da Receita será atualizada dentro do projeto na pasta C:\Users\Matheus Herminio\Desktop\te\sincronizacao-receita\processamento-app\src\test\resources\sincronizacaoReceita\arquivo\saida
+O novo arquivo com os dados da Receita será criado dentro do projeto no diretório processamento-app\src\test\resources\sincronizacaoReceita\arquivo\saida
 com o nome de arquivo igual ao de entrada.
 
 Testes com 1000 threads:
