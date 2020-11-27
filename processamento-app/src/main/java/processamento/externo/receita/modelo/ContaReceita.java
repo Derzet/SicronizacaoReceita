@@ -1,4 +1,4 @@
-package processamento.modelo;
+package processamento.externo.receita.modelo;
 
 import java.security.InvalidParameterException;
 
@@ -10,11 +10,12 @@ public class ContaReceita {
     private Boolean atualizada;
     private static String regexConta = "\\d*";
 
-    public ContaReceita(String agencia, String conta, double saldo, String status) {
+    public ContaReceita(String agencia, String conta, double saldo, String status, Boolean atualizada) {
         this.agencia = agencia; //formatar de acordo com a conta receita
         setConta(conta);
         this.saldo = saldo;
         this.status = status;
+        this.atualizada = atualizada;
     }
 
     public String getAgencia() {
@@ -42,7 +43,7 @@ public class ContaReceita {
         if(conta.matches(regexConta)){
             this.conta = conta;
         }else{
-            throw new InvalidParameterException("Conta Inválida!");
+            throw new InvalidParameterException("Conta Inválida! Não respeita o padrão númerico!");
         }
     }
 

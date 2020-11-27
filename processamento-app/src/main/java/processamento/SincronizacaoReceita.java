@@ -32,16 +32,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import processamento.arquivo.ContaAtualizadaCSVTemplate;
-import processamento.arquivo.conversor.ContaConversorCSV;
-import processamento.modelo.ContaReceita;
-import processamento.servico.externo.ReceitaService;
+import processamento.arquivo.csv.ArquivoUtilitariosCSV;
+import processamento.arquivo.csv.receita.ContaAtualizadaTemplateCSV;
+import processamento.arquivo.csv.receita.mapeador.ContaReceitaCSVMapeador;
+import processamento.externo.receita.modelo.ContaReceita;
+import processamento.externo.receita.servico.ReceitaService;
 
+import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 
 
@@ -50,8 +50,6 @@ public class SincronizacaoReceita implements CommandLineRunner {
 
     private static final Logger LOGGER = LoggerFactory
             .getLogger(SincronizacaoReceita.class);
-    private static final int LINHA_POS = 1;
-    private static final String NUMERO_THREADS_PARALELISMO = "1000";
 
     public static void main(String[] args) {
         LOGGER.info("Inicializando Aplicação!");
@@ -62,30 +60,32 @@ public class SincronizacaoReceita implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         /*path gerado encontrado gerado em resources  */
-        String path = args[0];
-        SincronizacaoReceita.atualizaContas(path);
+        SincronizacaoReceita.atualizaContas(new File(args[0]));
     }
 
-    public static Path atualizaContas(String path) throws IOException {
-        //configurar de acordo com as configuracoes de perfomance a ser obtido
-        System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", NUMERO_THREADS_PARALELISMO);
-        String pathBase = System.getProperty("user.dir") + "\\src\\main\\resources\\";
-        Path contaAtualizado = Paths.get(pathBase + "contaAtualizada.csv");
-        Files.deleteIfExists(contaAtualizado);
-        Files.createFile(contaAtualizado);
-        List<byte[]> dadosContasAtualizada =
-                Files.lines(Paths.get(path))
-                        .skip(LINHA_POS)
-                        .parallel()
-                        .map(SincronizacaoReceita::atualizaLinha)
-                        .collect(Collectors.toList());
-
-        return ContaAtualizadaCSVTemplate.criarArquivoContaAtualizada(contaAtualizado, dadosContasAtualizada);
+    public static File atualizaContas(File caminhoArquivoOrigem) throws IOException {
+        List<ContaReceita> dadosContasAtualizada = carregaDadosContaReceitaAtualizaCSV(caminhoArquivoOrigem);
+        ContaAtualizadaTemplateCSV contaAtualizadaTemplateCSV = new ContaAtualizadaTemplateCSV(caminhoArquivoOrigem,dadosContasAtualizada);
+        return contaAtualizadaTemplateCSV.getArquivo();
     }
 
+    private static List<ContaReceita> carregaDadosContaReceitaAtualizaCSV(File caminhoArquivo) throws IOException {
+        //configurar o numero de threads de acordo com as configuracoes de performance
+        ForkJoinPool customizadaPool = new ForkJoinPool(1000);
+        List<String> dadosContaCSV = ArquivoUtilitariosCSV.carregaDadosArquivo(caminhoArquivo);
+        List<ContaReceita> contaReceitas =  customizadaPool.submit(() ->
 
-    private static byte[] atualizaLinha(String contaCSV) {
-        ContaReceita contaReceita = ContaConversorCSV.converteContaCSVParaContaReceita(contaCSV);
+            dadosContaCSV.stream()
+                    .parallel()
+                    .map(SincronizacaoReceita::atualizaContaReceita)
+                    .collect(Collectors.toList())
+        ).join();
+        customizadaPool.shutdown();
+        return contaReceitas;
+    }
+
+    private static ContaReceita atualizaContaReceita(String contaCSV) {
+        ContaReceita contaReceita = ContaReceitaCSVMapeador.mapeiaStringContaCSVParaContaReceita(contaCSV);
         int numeroMaximoTentativasServico = 5;
         while (numeroMaximoTentativasServico != 0) {
             try {
@@ -93,7 +93,7 @@ public class SincronizacaoReceita implements CommandLineRunner {
                 Boolean atualizada = receitaService.atualizarConta(contaReceita.getAgencia(),
                         contaReceita.getConta(), contaReceita.getSaldo(), contaReceita.getStatus());
                 contaReceita.setAtualizada(atualizada);
-                return ContaConversorCSV.converteContaReceitaParaBytes(contaReceita);
+                return contaReceita;
             } catch (RuntimeException exception) {
                 LOGGER.error("SIRE-1 - ERROR no consumo do serviço ReceitaService. Realizando nova tentativa! ".concat(exception.getClass().getName()));
                 numeroMaximoTentativasServico--;
@@ -104,7 +104,7 @@ public class SincronizacaoReceita implements CommandLineRunner {
             }
         }
         contaReceita.setAtualizada(Boolean.FALSE);
-        return ContaConversorCSV.converteContaReceitaParaBytes(contaReceita);
+        return contaReceita;
     }
 
 }

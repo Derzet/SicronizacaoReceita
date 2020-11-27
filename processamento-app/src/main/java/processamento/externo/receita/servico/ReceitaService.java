@@ -1,4 +1,4 @@
-package processamento.servico.externo;
+package processamento.externo.receita.servico;
 
 import java.util.ArrayList;
 import java.util.List;
