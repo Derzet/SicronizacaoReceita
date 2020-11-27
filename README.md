@@ -11,11 +11,12 @@ mvn clean install spring-boot:repackage
 Depois executar o build com o comando:
 
 ```java
-java -jar target/processamento-app-1.0-SNAPSHOT.jar "caminhoArquivo"
+java -jar target/processamento-app-1.0.jar "caminhoArquivo"
 ```
 
 
-O arquivo com as contas atualizada irá ser gerado dentro do projeto na pasta resources com o nome de arquivo: contaAtualizada.csv
+O arquivo com os dados da Receita será atualizada dentro do projeto na pasta C:\Users\Matheus Herminio\Desktop\te\sincronizacao-receita\processamento-app\src\test\resources\sincronizacaoReceita\arquivo\saida
+com o nome de arquivo igual ao de entrada.
 
 Testes com 1000 threads:
 ![alt text](images/testes_desempenho_e_unitario_SincronizacaoReceita.png)
